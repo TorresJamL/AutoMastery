@@ -74,6 +74,9 @@
             |--
             |--
 
+## I am not gonna finish that, 
+## lab 2 and 3
+
 To not send as many request each time, and spare my laptop 20 years of loading student info, I'll create a 
 |--student_data.json, that also should lead to less requests wasted. 
 
@@ -81,3 +84,12 @@ So:
 if students_data.json exists -> load from there, 
 else, do the usual requesting
 
+ADDENDUM:
+It might be better to go by a per-rubric basis and get the associated assignments from it. 
+Going by an assignment-to-assignment basis is not optimal. 
+Assignments might not be as easy to get, since I do not believe assignments are references on the outcomes page.
+
+NOTE:
+Putting a new outcome rubric score does not seem to change anything. It might be better to test on an outcome that
+|-that hasn't been touched yet. If those magically get a rubric score, then it works under the condition nothings
+|-there, if nothing happens, then idk. Time for a different solution then?

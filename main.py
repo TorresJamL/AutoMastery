@@ -64,12 +64,6 @@ class CourseInfo():
                 print("Error while fetching:", err)
                 break
         return all_students
-
-    def get_students_names(self):
-        names = []
-        for student in self.students:
-            names.append(student['name'])
-        return names
     
     def get_id_name_pairs(self):
         student_dict = {}
@@ -112,7 +106,7 @@ class CourseInfo():
         Updates the outcomes attached to a singular assignment for every student.
         """
         def _score_to_rubric_score(score):
-            """Returns the score on the rubric given an assignment score"""
+            """Returns the score on the rubric given an assignment score."""
             if score >= 90: return 4
             elif score >= 80: return 3
             elif score >= 60: return 2
@@ -134,7 +128,6 @@ class CourseInfo():
             response = requests.get(submission_url, headers=self.headers)
 
             submission_data: dict = response.json()
-            print(submission_data)
             for rubric_id in rubrics:
                 new_outcome = {
                     "rubric_assessment": {
@@ -145,7 +138,7 @@ class CourseInfo():
                 out_response = requests.put(submission_url, headers=self.headers, json = new_outcome)
                 out_response.raise_for_status()
                 
-                #print(f"User: {student_id}, {student_name} :: Score: {response.json()['score']}, Rubric Score: {new_outcome['rubric_assessment'[str(rubric_id)]['points']]}")
+                print(f"User: {student_id}, {student_name} :: Score: {response.json()['score']}, Rubric Score: {new_outcome['rubric_assessment'][str(rubric_id)]['points']}")
 
 
 
@@ -154,7 +147,7 @@ def main():
     course = CourseInfo(80807)
 
     print(course.get_assignments())
-    course.update_assignment_outcomes(617296)
+    course.update_assignment_outcomes(624443)
 
 
 if __name__ == "__main__":
