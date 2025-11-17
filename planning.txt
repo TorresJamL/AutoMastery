@@ -1,0 +1,83 @@
+10 Learning Outcomes / Masteries
+    1.  Design a program to solve a real-world problem with flowcharts and/or pseudocode
+        _1. __RUBRICS/ASSIGNMENTS_UNDER_OUTCOME__
+            |--Exam 1 Q2
+            |--
+            |--
+            |--
+            |--
+    2.  Correctly implement code according to a given design
+        _2. __RUBRICS/ASSIGNMENTS_UNDER_OUTCOME__
+            |--
+            |--
+            |--
+            |--
+            |--
+    3.  Validate correct program behavior through unit tests
+        _3. __RUBRICS/ASSIGNMENTS_UNDER_OUTCOME__
+            |--Exam 1 Q3
+            |--
+            |--
+            |--
+            |--
+    4.  Analyze and correct a program that is executing incorrect program behavior
+        _4. __RUBRICS/ASSIGNMENTS_UNDER_OUTCOME__
+            |--Exam 1 Q3
+            |--
+            |--
+            |--
+            |--
+    5.  Troubleshoot software development roadblocks by actively seeking effective resources such as 
+        |--documentation, example code, and other developers.​
+        _5. __RUBRICS/ASSIGNMENTS_UNDER_OUTCOME__
+            |--
+            |--
+            |--
+            |--
+            |--
+    6.  Define an algorithm using recursion and higher order functions
+        _6. __RUBRICS/ASSIGNMENTS_UNDER_OUTCOME__
+            |--Exam 1 Q4
+            |--
+            |--
+            |--
+            |--
+    7.  Explain how Python represents real-world data such as numbers, text, 
+        |--and images in a machine-readable format (Binary)
+        _7. __RUBRICS/ASSIGNMENTS_UNDER_OUTCOME__
+            |--
+            |--
+            |--
+            |--
+            |--
+    8.  Explain a program’s behavior step by step by showing how memory changes through operations 
+        |--such as array access, conditional execution, looping, object reference, and method invocation 
+        |--(including recursive invocation).
+        _8. __RUBRICS/ASSIGNMENTS_UNDER_OUTCOME__
+            |--Exam 1 Q4
+            |--
+            |--
+            |--
+            |--
+    9.  Interpret a stack trace to explain what a program was doing before it exited
+        _9. __RUBRICS/ASSIGNMENTS_UNDER_OUTCOME__
+            |--Exam 1 Q3
+            |--
+            |--
+            |--
+            |--
+    10. Organize data, code, and functionality by creating and extending object classes
+        10. __RUBRICS/ASSIGNMENTS_UNDER_OUTCOME__
+            |--
+            |--
+            |--
+            |--
+            |--
+
+To not send as many request each time, and spare my laptop 20 years of loading student info, I'll create a 
+|--student_data.json, that also should lead to less requests wasted. 
+
+So:
+if students_data.json exists -> load from there, 
+else, do the usual requesting
+

@@ -1,0 +1,2 @@
+## Temp token storage
+TOKEN = "1030~6FJHKknVBUy8WKtFQLe9Dcvhe7ruFyyWQDwQHwrRMZ74RPUWMmZ42yQxJEZB6zAW"
