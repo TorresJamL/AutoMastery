@@ -100,8 +100,21 @@ class CourseInfo():
                 break
 
         return assignment_pairs
+    
+    def get_assignment_rubrics(self, assignment_id):
+        """Returns a dictionary where the key is the rubric ID and the value is the rubric item name."""
+        rubric_url = f"{self.PAGE_URL}/courses/{self.COURSE_ID}/assignments/{assignment_id}?include[]=rubric&include[]=rubric_association"
+        response = requests.get(rubric_url, headers=self.headers)
+        response.raise_for_status()
 
-    def update_assignment_outcomes(self, assignment_id):
+        rubrics_data = response.json()
+
+        rubric_pairs = {}
+        for i in range(len(rubrics_data['rubric'])):
+            rubric_pairs[rubrics_data['rubric'][i]['id']] = rubrics_data['rubric'][i]['description']
+        return rubric_pairs
+    
+    def update_assignment_outcomes(self, assignment_id, is_jamil_scared_of_updating_every_students_outcome = True):
         """
         Updates the outcomes attached to a singular assignment for every student.
         """
@@ -112,17 +125,9 @@ class CourseInfo():
             elif score >= 60: return 2
             elif score >= 40: return 1
             else: return 0
-        
-        def _get_assignment_rubrics():
-            rubric_url = f"{self.PAGE_URL}/courses/{self.COURSE_ID}/assignments/{assignment_id}?include[]=rubric&include[]=rubric_association"
-            response = requests.get(rubric_url, headers=self.headers)
-            response.raise_for_status()
-
-            rubrics_data = response.json()
-            return [rubrics_data['rubric'][i]['id'] for i in range(len(rubrics_data['rubric']))]
 
         ### Test with labs 2 & 3
-        rubrics = _get_assignment_rubrics()
+        rubrics = self.get_assignment_rubrics()
         for index, (student_id, student_name) in enumerate(self.id_name_pairs.items()):
             submission_url = f"{self.PAGE_URL}/courses/{self.COURSE_ID}/assignments/{assignment_id}/submissions/{student_id}"
             response = requests.get(submission_url, headers=self.headers)
@@ -133,22 +138,22 @@ class CourseInfo():
                     "rubric_assessment": {
                         str(rubric_id): 
                         {"points" : _score_to_rubric_score(
-                            submission_data['score'] if type(submission_data['score']) == int else 0)}}}
+                            submission_data['score'] if type(submission_data['score']) != float else 0)}}}
                 
                 out_response = requests.put(submission_url, headers=self.headers, json = new_outcome)
                 out_response.raise_for_status()
                 
                 print(f"User: {student_id}, {student_name} :: Score: {response.json()['score']}, Rubric Score: {new_outcome['rubric_assessment'][str(rubric_id)]['points']}")
-
-
-
+                if is_jamil_scared_of_updating_every_students_outcome: break
 
 def main():
     course = CourseInfo(80807)
 
-    print(course.get_assignments())
-    course.update_assignment_outcomes(624443)
+    #lab 2: 624443
+    # course.update_assignment_outcomes(624443) 
+    print(course.get_assignment_rubrics(624443))
 
 
 if __name__ == "__main__":
+
     main()
