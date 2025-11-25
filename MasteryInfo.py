@@ -23,7 +23,6 @@ class Mastery():
     
     def __score_to_rubric_score(self, score):
         """Returns the score on the rubric given an assignment score."""
-        # TODO: Customize rubric thresholds to remove this function!
         if score >= 90: return 4
         elif score >= 80: return 3
         elif score >= 60: return 2
@@ -32,10 +31,8 @@ class Mastery():
 
     def calc_assignment_outcomes(self, assignment_id, student_pairs:dict):
         """Calculates the outcome scores for each student on a particular assignment
-
         Args:
             assignment_id (int): ID of the assignment
-
         Returns:
             dict: {student id : {rubric_id : score}, ...}
         """
@@ -59,7 +56,7 @@ class Mastery():
     def update_assignment_outcomes(self, assignment_id, is_jamil_scared_of_updating_every_students_outcome = True):
         """
         Updates the outcomes attached to a singular assignment for every student.
-        MUST CALL calc_assignment_outcomes ON ASSIGNMENT_ID FIRST
+        > MUST CALL calc_assignment_outcomes ON assignment_id FIRST
         Parameters:
             assignment_id (int): id of the assignment
             is_jamil_scared_of_updating_every_students_outcome (bool): Only forces the grade of 1 student, usually the first one on the json list.
@@ -83,5 +80,6 @@ class Mastery():
                 if is_jamil_scared_of_updating_every_students_outcome: break
 
     def update_all_new_outcomes(self):
+        """Updates every changed outcome"""
         for assignment_id in self.outcome_updates_dict:
             self.update_assignment_outcomes(assignment_id)

@@ -12,6 +12,7 @@ where T can be something like an 80
 class Course():
     def __init__(
             self, 
+            page_url,
             course_id, 
             overwrite_student_json: bool = False, 
             overwrite_assignment_json: bool = False):
@@ -19,7 +20,7 @@ class Course():
         Either of the overwrite parameters if true will overwrite the respective json loaded data 
         regardless of whether they exist or not.
         """
-        self.PAGE_URL = "https://sit.instructure.com/api/v1"
+        self.PAGE_URL = page_url
         self.COURSE_ID = course_id #80807 for CS115
         self.headers = {
             "Authorization": f"Bearer {TOKEN}"
@@ -105,6 +106,7 @@ class Course():
         return all_assignments
     
     def get_assignment_pairs(self, should_overwrite = False):
+        """Returns a dictionary where the key is the assignment ID and the value is the assignment name."""
         if Path("assignment_data.json").exists() and not should_overwrite:
             with open("assignment_data.json", 'r') as assignment_data_file:
                 return json.load(assignment_data_file) 
@@ -119,7 +121,20 @@ class Course():
             return assignment_dict
 
     def create_new_assignment_outcomes(self, assignment_id):
+        """ Calculates the outcome scores for each student on a particular assignment
+        Args:
+            assignment_id (int): 
+        Returns:
+            dict: A dict holding the new student outcome scores for that assignment. Formatted: {student id : {rubric_id : score}, ...}
+        """
         return self.mastery.calc_assignment_outcomes(assignment_id, self.student_pairs)
     
     def update_assignment_outcomes(self, assignment_id):
+        """
+        Updates the outcomes attached to a singular assignment for every student.
+        The outcomes for the assignment MUST be calculated first.
+        Parameters:
+            assignment_id (int): id of the assignment
+            is_jamil_scared_of_updating_every_students_outcome (bool): Only forces the grade of 1 student, the first one on the json list.
+        """
         self.mastery.update_assignment_outcomes(self, assignment_id)
