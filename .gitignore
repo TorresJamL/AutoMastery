@@ -205,3 +205,7 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Course Exclusive Info
+student_data.json
+assignment_data.json

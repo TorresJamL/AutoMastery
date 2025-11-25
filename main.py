@@ -1,7 +1,7 @@
-from CourseInfo import CourseInfo
+from CourseInfo import Course
 
 def main():
-    course = CourseInfo(80807)
+    course = Course(80807)
 
 if __name__ == "__main__":
     main()

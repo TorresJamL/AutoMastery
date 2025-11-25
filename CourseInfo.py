@@ -2,40 +2,32 @@ import requests
 from _t_ import TOKEN
 from pathlib import Path
 import json
+from MasteryInfo import Mastery
 """
 Given a grade already published from Gradescope to Canvas, 
 mark a rubric item based on their grade and some threshold: 
     at least a "if score is above T, assign "Mastery" 
 where T can be something like an 80
 """
-class CourseInfo():
-    def __init__(self, course_id, overwrite_jsons: bool = False):
+class Course():
+    def __init__(
+            self, 
+            course_id, 
+            overwrite_student_json: bool = False, 
+            overwrite_assignment_json: bool = False):
         """
-        override_jsons if true will overwrite the json loaded data regardless of whether they exist or not. (in case of students withdraw or join in)
+        Either of the overwrite parameters if true will overwrite the respective json loaded data 
+        regardless of whether they exist or not.
         """
         self.PAGE_URL = "https://sit.instructure.com/api/v1"
         self.COURSE_ID = course_id #80807 for CS115
         self.headers = {
             "Authorization": f"Bearer {TOKEN}"
         }
-
-        # students is a list of dictionaries formated in the following:
-        # {id: ---, name: ---, created_at: ---, sortable_name: ---, short_name: ---}
-        self.students = None
-        # id - name, dictionary formatted: {id : name}
-        self.id_name_pairs = None
-        if Path("student_data.json").exists() and not overwrite_jsons:
-            with open("student_data.json", 'r') as student_data_file:
-                print("Begin JSON loading...")
-                self.id_name_pairs = json.load(student_data_file) 
-                print("JSON loading done.")
-        else:
-            self.students = self.get_students() 
-            self.id_name_pairs = self.get_id_name_pairs()
-            with open("student_data.json", 'w+') as student_data_file:
-                print("Begin JSON data dump...")
-                json.dump(self.id_name_pairs, student_data_file, indent=4)
-                print("JSON data dump done.")
+        self.mastery = Mastery(self.PAGE_URL, self.COURSE_ID, self.headers)
+        
+        self.student_pairs = self.get_student_pairs(overwrite_student_json) # {id : name}, ...
+        self.assignment_pairs = self.get_assignment_pairs(overwrite_assignment_json) # {assignment id : assignment name}, ...
 
     def get_students(self):
         """Returns a list of dictionaries holding individual student data."""
@@ -68,20 +60,28 @@ class CourseInfo():
                 break
         return all_students
     
-    def get_id_name_pairs(self):
+    def get_student_pairs(self, should_overwrite = False):
         """Returns a dictionary where the key is the student ID and the value is the student name."""
-        student_dict = {}
-        for student in self.students:
-            student_dict[student['id']] = student['name']
-        return student_dict
+        if Path("student_data.json").exists() and not should_overwrite:
+            with open("student_data.json", 'r') as student_data_file:
+                return json.load(student_data_file) 
+        else: 
+            student_dict = {}
+            for student in self.get_students():
+                student_dict[student['id']] = student['name']
+
+            with open("student_data.json", 'w+') as student_data_file:
+                json.dump(student_dict, student_data_file, indent=4)
+
+            return student_dict
     
     def get_assignments(self):
         """Returns a dictionary where the key is the assignemnt ID and the value is the assignemnt name."""
-        assignment_pairs = {}
-        assignment_url = f"{self.PAGE_URL}/courses/{self.COURSE_ID}/assignments"
-        response = requests.get(assignment_url, headers=self.headers)
-
         max_loop_count = 100
+        all_assignments = []
+        assignment_url = f"{self.PAGE_URL}/courses/{self.COURSE_ID}/assignments"
+
+        response = requests.get(assignment_url, headers=self.headers)
         while assignment_url and max_loop_count >= 0:
             try:
                 print(assignment_url)
@@ -91,8 +91,7 @@ class CourseInfo():
                     raise Exception("Response not ok :(")
                 
                 assignments = response.json()
-                for assignment in assignments:
-                    assignment_pairs[assignment['id']] = assignment['name']
+                all_assignments.extend(assignments)
                 
                 if "next" in response.links:
                     assignment_url = response.links["next"]["url"]
@@ -103,84 +102,24 @@ class CourseInfo():
                 print("Error while fetching:", err)
                 break
 
-        return assignment_pairs
+        return all_assignments
     
-    def get_assignment_rubrics(self, assignment_id):
-        """Returns a dictionary where the key is the rubric ID and the value is the rubric item name."""
-        rubric_url = f"{self.PAGE_URL}/courses/{self.COURSE_ID}/assignments/{assignment_id}?include[]=rubric&include[]=rubric_association"
-        response = requests.get(rubric_url, headers=self.headers)
-        response.raise_for_status()
+    def get_assignment_pairs(self, should_overwrite = False):
+        if Path("assignment_data.json").exists() and not should_overwrite:
+            with open("assignment_data.json", 'r') as assignment_data_file:
+                return json.load(assignment_data_file) 
+        else:
+            assignment_dict = {}
+            for assignment in self.get_assignments() :
+                assignment_dict[assignment['id']] = assignment['name']
 
-        rubrics_data = response.json()
-
-        rubric_pairs = {}
-        for i in range(len(rubrics_data['rubric'])):
-            rubric_pairs[rubrics_data['rubric'][i]['id']] = rubrics_data['rubric'][i]['description']
-        return rubric_pairs
-    
-    def __score_to_rubric_score(self, score):
-            """Returns the score on the rubric given an assignment score."""
-            # TODO: Customize rubric thresholds to remove this function!
-            if score >= 90: return 4
-            elif score >= 80: return 3
-            elif score >= 60: return 2
-            elif score >= 40: return 1
-            else: return 0
-
-    def calc_assignment_outcomes(self, assignment_id):
-        """Calculates the outcome scores for each student on a particular assignment
-
-        Args:
-            assignment_id (int): ID of the assignment
-
-        Returns:
-            _type_: _description_
-        """
-        rubrics = self.get_assignment_rubrics()
-        new_students_outcomes = {}
-
-        for index, (student_id, student_name) in enumerate(self.id_name_pairs.items()):
-            submission_url = f"{self.PAGE_URL}/courses/{self.COURSE_ID}/assignments/{assignment_id}/submissions/{student_id}"
-            response = requests.get(submission_url, headers=self.headers)
-
-            submission_data: dict = response.json()
-            new_students_outcomes[student_id] = {}
-
-            for rubric_id in rubrics:
-                new_students_outcomes[student_id][rubric_id] = self.__score_to_rubric_score(
-                    submission_data['score'] if type(submission_data['score']) == float else 0.0)
-                
-        return new_students_outcomes
-                
-
-    def update_assignment_outcomes(self, assignment_id, is_jamil_scared_of_updating_every_students_outcome = True):
-        """
-        Updates the outcomes attached to a singular assignment for every student.
-
-        Parameters:
-            assignment_id (int): id of the assignment
-            is_jamil_scared_of_updating_every_students_outcome (bool): Only forces the grade of 1 student, usually the first one on the json list.
+            with open("assignment_data.json", 'w+') as assignment_data_file:
+                json.dump(assignment_dict, assignment_data_file, indent=4)
         
-        Returns:
-            None (None): 
-        """
+            return assignment_dict
 
-        ### Test with labs 2 & 3
-        rubrics = self.get_assignment_rubrics()
-        for index, (student_id, student_name) in enumerate(self.id_name_pairs.items()):
-            submission_url = f"{self.PAGE_URL}/courses/{self.COURSE_ID}/assignments/{assignment_id}/submissions/{student_id}"
-            response = requests.get(submission_url, headers=self.headers)
-
-            submission_data: dict = response.json()
-            for rubric_id in rubrics:
-                new_outcome = {
-                    "rubric_assessment": {
-                        str(rubric_id): 
-                        {"points" : self.__score_to_rubric_score(
-                            submission_data['score'] if type(submission_data['score']) == float else 0.0)}}}
-                
-                out_response = requests.put(submission_url, headers=self.headers, json = new_outcome)
-                out_response.raise_for_status()
-                
-                print(f"User: {student_id}, {student_name} :: Score: {response.json()['score']}, Rubric Score: {new_outcome['rubric_assessment'][str(rubric_id)]['points']}")
-                if is_jamil_scared_of_updating_every_students_outcome: break
+    def create_new_assignment_outcomes(self, assignment_id):
+        return self.mastery.calc_assignment_outcomes(assignment_id, self.student_pairs)
+    
+    def update_assignment_outcomes(self, assignment_id):
+        self.mastery.update_assignment_outcomes(self, assignment_id)
