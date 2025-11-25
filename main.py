@@ -158,7 +158,6 @@ class CourseInfo():
                 print(f"User: {student_id}, {student_name} :: Score: {response.json()['score']}, Rubric Score: {new_outcome['rubric_assessment'][str(rubric_id)]['points']}")
                 if is_jamil_scared_of_updating_every_students_outcome: break
     
-
 def main():
     course = CourseInfo(80807)
 
