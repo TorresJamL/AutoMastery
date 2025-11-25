@@ -209,3 +209,6 @@ __marimo__/
 # Course Exclusive Info
 student_data.json
 assignment_data.json
+
+# Token
+_t_.py
