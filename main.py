@@ -2,6 +2,14 @@ import requests
 from _t_ import TOKEN
 from pathlib import Path
 import json
+import os
+import pandas as pd
+
+# import gradescope CSVs and make DataFrames
+exam1 = pd.read_csv("exam1file.csv")
+exam2 = pd.read_csv("exam2file.csv")
+# print(exam2.columns[14]) # exam subquestions start at index 14 for both exams
+
 """
 Given a grade already published from Gradescope to Canvas, 
 mark a rubric item based on their grade and some threshold: 
@@ -108,11 +116,26 @@ class CourseInfo():
         response.raise_for_status()
 
         rubrics_data = response.json()
+        #print(rubrics_data["rubric_settings"]) # HOW TO RETRIEVE RUBRIC ID
+        # I think my issue with defining a separate function for all rubric outcomes is 
+        # not working because the ID is associated with an assignment so let's just make this function longer.
+        assignment_name = rubrics_data['name']
 
+        #collect all of the possible rubric outcomes from rubric_id
+        rubric_id = rubrics_data['rubric_settings']['id']
+        rubrics_url = (
+        f"{self.PAGE_URL}/courses/{self.COURSE_ID}/rubrics/{rubric_id}"
+        f"?include[]=rubric&include[]=rubric_associations"
+        )
+        response2 = requests.get(rubrics_url, headers=self.headers)
+        response2.raise_for_status()
+        all_outcomes = response2.json()
+
+        # This retrieves the rubric used for each assignment
         rubric_pairs = {}
         for i in range(len(rubrics_data['rubric'])):
             rubric_pairs[rubrics_data['rubric'][i]['id']] = rubrics_data['rubric'][i]['description']
-        return rubric_pairs
+        return [assignment_name, rubric_pairs, all_outcomes]
     
     def update_assignment_outcomes(self, assignment_id, is_jamil_scared_of_updating_every_students_outcome = True):
         """
@@ -146,13 +169,62 @@ class CourseInfo():
                 print(f"User: {student_id}, {student_name} :: Score: {response.json()['score']}, Rubric Score: {new_outcome['rubric_assessment'][str(rubric_id)]['points']}")
                 if is_jamil_scared_of_updating_every_students_outcome: break
 
+''' Class to hold data for an assignment, including questions and subquestions
+    Note: Canvas assignments are one assignment per lab/HW/whatever, but PER QUESTION for each exam question.
+'''
+class Assignment():
+    # constructor with no name/id for Exams since they are by question on canvas
+    def __init__(self, course, name):
+        self.course = course
+        self.name = name 
+        self.id = None
+        self.mastery_score = 0
+        if (self.id is not None):
+            self.rubric = self.course.get_assignment_rubrics(self.id)
+
+    def __init__(self, course, name, eid):
+        self.course = course # instance of CourseInfo
+        self.name = name
+        self.id = eid
+        self.mastery_score = 0 # default value
+        if (self.id is not None):
+            self.rubric = self.course.get_assignment_rubrics(self.id)
+
+class Exam(Assignment):
+    def __init__(self, course, name):
+        super().__init__(course, name) # we will be using the name for personal id purposes
+        self.questions = []
+        self.canvas_ids = []
+
+    ''' Add sub questions from Gradescope CSV to self attribute.'''
+    def assign_questions(self, df):
+        for col in df[14:]: # index 14 is where the questions start
+            self.questions.append(col)
+
+    ''' Save all Canvas assignment ids for an exam since there are assignments
+        per question on Canvas
+    '''
+    def get_ids(self):
+        for id in self.course.get_assignments().keys():
+            # specific use when given a name, it should be "Exam 1" or "Exam 2"
+            # or whatever part is contained in each Canvas assignment title
+            if self.name in id:
+                self.canvas_ids.append(id)
+
 def main():
-    course = CourseInfo(80807)
-
+    pass
     #lab 2: 624443
+    # exam 1 q1: 630173
     # course.update_assignment_outcomes(624443) 
-    print(course.get_assignment_rubrics(624443))
 
+    course = CourseInfo(80807)
+    assignments = course.get_assignments()
+    rubric = course.get_assignment_rubrics(624443)[2]
+    print(rubric)
+    #e1 = Exam()
+    #print(assignments[630173])
+    #print(course.get_assignment_rubrics(630173)[1]) # return the assignment name
+    # OUTPUT: {'_9538': '2: Correctly implement code according to a given design'}
 
 if __name__ == "__main__":
 
