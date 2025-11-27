@@ -3,12 +3,12 @@ from _t_ import TOKEN
 from pathlib import Path
 import json
 from MasteryInfo import Mastery
-"""
-Given a grade already published from Gradescope to Canvas, 
-mark a rubric item based on their grade and some threshold: 
-    at least a "if score is above T, assign "Mastery" 
-where T can be something like an 80
-"""
+
+# Given a grade already published from Gradescope to Canvas, 
+# mark a rubric item based on their grade and some threshold: 
+#     at least a "if score is above T, assign "Mastery" 
+# where T can be something like an 80
+
 class Course():
     def __init__(
             self, 
@@ -25,14 +25,16 @@ class Course():
         self.headers = {
             "Authorization": f"Bearer {TOKEN}"
         }
-        self.mastery = Mastery(self.PAGE_URL, self.COURSE_ID, self.headers)
-        
+        self.mastery = Mastery(self.PAGE_URL, self.COURSE_ID, self.headers) 
+
         self.student_pairs = self.get_student_pairs(overwrite_student_json) # {id : name}, ...
         self.assignment_pairs = self.get_assignment_pairs(overwrite_assignment_json) # {assignment id : assignment name}, ...
 
     def get_students(self):
-        """Returns a list of dictionaries holding individual student data."""
-        max_loop_count = 100
+        """
+        Returns a list of dictionaries holding individual student data.
+        More accurately returns a list of User objects: https://developerdocs.instructure.com/services/canvas/resources/users#user
+        """
         all_students = []
         course_url = f"{self.PAGE_URL}/courses/{self.COURSE_ID}/users?enrollment_type[]=student"
 
@@ -40,7 +42,7 @@ class Course():
         if not response.ok:
             print("Error:", response.status_code, response.text)
             raise Exception("Response not ok :(")
-        while course_url != None and max_loop_count > 0:
+        while course_url != None:
             try: 
                 response = requests.get(course_url, headers=self.headers)
 
@@ -55,7 +57,6 @@ class Course():
                 else:
                     course_url = None
                 print(course_url)
-                max_loop_count-=1
             except Exception as err:
                 print("Error while fetching:", err)
                 break
@@ -77,13 +78,15 @@ class Course():
             return student_dict
     
     def get_assignments(self):
-        """Returns a dictionary where the key is the assignemnt ID and the value is the assignemnt name."""
-        max_loop_count = 100
+        """
+        Returns a list of dictionaries holding individual assignment data.
+        More accurately returns a list of assignment objects: https://developerdocs.instructure.com/services/canvas/resources/assignments
+        """
         all_assignments = []
         assignment_url = f"{self.PAGE_URL}/courses/{self.COURSE_ID}/assignments"
 
         response = requests.get(assignment_url, headers=self.headers)
-        while assignment_url and max_loop_count >= 0:
+        while assignment_url:
             try:
                 print(assignment_url)
                 response = requests.get(assignment_url, headers=self.headers)
@@ -98,7 +101,6 @@ class Course():
                     assignment_url = response.links["next"]["url"]
                 else:
                     assignment_url = None
-                max_loop_count-=1
             except Exception as err:
                 print("Error while fetching:", err)
                 break
@@ -121,13 +123,12 @@ class Course():
             return assignment_dict
 
     def create_new_assignment_outcomes(self, assignment_id):
-        """ Calculates the outcome scores for each student on a particular assignment
+        """ 
+        Calculates the outcome scores for each student on a particular assignment
         Args:
             assignment_id (int): 
-        Returns:
-            dict: A dict holding the new student outcome scores for that assignment. Formatted: {student id : {rubric_id : score}, ...}
         """
-        return self.mastery.calc_assignment_outcomes(assignment_id, self.student_pairs)
+        self.mastery.calc_assignment_outcomes(assignment_id, self.student_pairs)
     
     def update_assignment_outcomes(self, assignment_id):
         """
