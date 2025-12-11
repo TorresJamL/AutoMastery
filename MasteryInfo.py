@@ -30,7 +30,8 @@ class Mastery():
         else: return 0
 
     def calc_assignment_outcomes(self, assignment_id, student_pairs:dict):
-        """Calculates the outcome scores for each student on a particular assignment
+        """
+        Calculates the outcome scores for each student on a particular assignment
         Args:
             assignment_id (int): ID of the assignment
         Returns:
@@ -42,6 +43,7 @@ class Mastery():
         for index, (student_id, student_name) in enumerate(student_pairs.items()):
             submission_url = f"{self.PAGE_URL}/courses/{self.COURSE_ID}/assignments/{assignment_id}/submissions/{student_id}"
             response = requests.get(submission_url, headers=self.headers)
+            response.raise_for_status()
 
             submission_data: dict = response.json()
             new_students_outcomes[student_id] = {} # 0th index is the rubric dictionary holding {id : outcome score}, 1st is the response
@@ -51,7 +53,6 @@ class Mastery():
                     submission_data['score'] if type(submission_data['score']) == float else 0.0)
 
         self.outcome_updates_dict[assignment_id] = new_students_outcomes    
-        return new_students_outcomes
 
     def update_assignment_outcomes(self, assignment_id, is_jamil_scared_of_updating_every_students_outcome = True):
         """
