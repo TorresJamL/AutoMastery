@@ -17,7 +17,13 @@ class Assignment():
         self.assignment_id = id
         self.rubric_id_to_qkeys = self.load_rubric_id_to_qkeys() #load from a json file
         self.rubric_id_to_total_pts = self.get_rubric_id_to_total_pts(self.rubric_id_to_qkeys)
-        csv_name = "exam1file.csv"
+        if "Exam 1" in self.name:
+            csv_name = "data/exam1all.csv"
+        elif "Exam 2" in self.name:
+            csv_name = "data/exam2all.csv"
+        else:
+            raise ValueError(f"Could not find csv file for {self.name}")
+
         self.score_df = pd.read_csv(csv_name)
 
     def load_rubric_id_to_qkeys(self):
@@ -32,20 +38,24 @@ class Assignment():
             with open(filename) as json_file:
                 return json.load(json_file)
 
+    def _question_key_to_total_pts(self, question_key):
+        match = re.search(r'\((\d+(?:\.\d+)?)\s*pts\)', question_key)
+        if match:
+            return float(match.group(1))
+        else:
+            raise RuntimeError("Unable to find match")
+
     def get_rubric_id_to_total_pts(self, rubric_id_to_qkeys):
         rubric_id_to_total_pts = {}
         for rubric_id in rubric_id_to_qkeys:
             rubric_id_to_total_pts[rubric_id] = 0
             for question_key in rubric_id_to_qkeys[rubric_id]:
-                match = re.search(r'\((\d+(?:\.\d+)?)\s*pts\)', question_key)
-                if match:
-                    rubric_id_to_total_pts[rubric_id] += float(match.group(1))
-                else:
-                    raise RuntimeError("Unable to find match")
+                rubric_id_to_total_pts[rubric_id] += self._question_key_to_total_pts(question_key)
         return rubric_id_to_total_pts
 
     def select_rubric_id_to_qkeys(self):
         # TODO eventually this should open the GUI to get me to match these myself. For now just hardcode
+        assert False
         q3_keys = ['3.1: ai.  why did the tests pass? (1.0 pts)',
                    '3.2: aii. test that would catch character going into wall (2.0 pts)',
                    '3.3: bi. stack trace interpretation table (3.0 pts)',
@@ -89,21 +99,25 @@ class Assignment():
 
         submission_data: dict = response.json()
         if sid not in list(self.score_df["SID"]):
-            raise RuntimeError(f"Could not find student: {student_name}")
+            #raise RuntimeError(f"Could not find student: {student_name}")
+            print(f"Could not find student: {student_name}")
+            return
 
         student_df = self.score_df.loc[self.score_df["SID"] == sid].squeeze()
 
         new_outcome = {
             "rubric_assessment": {}}
 
+        total_question_score = self.compute_total_question_score(student_df)
+
         for rubric_id in self.rubric_id_to_qkeys:
             qkeys = self.rubric_id_to_qkeys[rubric_id]
-            total_question_score = self.compute_total_question_score(rubric_id, qkeys, student_df)
             mastery_score = self.compute_mastery_score(rubric_id, qkeys, student_df)
             new_outcome["rubric_assessment"][str(rubric_id)] = {"points": mastery_score}
 
         out_response = requests.put(submission_url, headers=self.course.headers, json=new_outcome,
                                     data={"submission[posted_grade]": int(total_question_score)})
+        print(f"{student_name} new outcome: {new_outcome}")
         out_response.raise_for_status()
 
         # Check that nothing was overwritten
@@ -111,23 +125,46 @@ class Assignment():
     def compute_mastery_score(self, rubric_id, qkeys, student_df) -> int:
         total_mastery_score = 0
         for qkey in qkeys:
+            if qkey not in student_df:
+                print("Cannot find student data for key {qkey}")
             subscore = student_df[qkey]
             total_mastery_score += subscore
         score = total_mastery_score / self.rubric_id_to_total_pts[rubric_id]
         mastery_score = self.score_to_rubric_score(score)
         return mastery_score
 
-    def compute_total_question_score(self, rubric_id, qkeys, student_df):
+    def infer_assignment_keys_from_df(self, student_df):
+        assignment_keys = []
+        question_in_assignment_name = int(re.search(r'Question\s+(\d+)', self.name).group(1))
+        for key in student_df.keys():
+            if "pts" not in key:
+                continue
+            match = re.match(r'(\d+(?:\.\d+)?)\s*:', key)
+            if match:
+                question_in_key = int(match.group(1)[0])
+                if question_in_key == question_in_assignment_name:
+                    assignment_keys.append(key)
+            else:
+                raise RuntimeError("Unable to find match for total question")
+
+
+        return assignment_keys
+
+    def compute_total_question_score(self, student_df):
         total_question_score = 0
-        for qkey in qkeys:
+        inferred_keys = self.infer_assignment_keys_from_df(student_df)
+        for qkey in inferred_keys:
             total_question_score += student_df[qkey]
         if np.isnan(total_question_score):
             total_question_score = 0
-        return qkeys, total_question_score
+        return  total_question_score
 
-    def update_mastery_scores(self, student_username=None):
+    def update_mastery_scores(self, student_name_match=None):
         student_data_dict = self.course.student_data_dict #read only
         for sid in student_data_dict.keys():
+            if student_name_match is not None:
+                if student_name_match not in student_data_dict[sid]["name"]:
+                    continue
             self.update_mastery_score_for_student(int(sid), student_data_dict[sid])
 
 

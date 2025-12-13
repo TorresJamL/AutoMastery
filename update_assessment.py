@@ -15,7 +15,7 @@ def main():
     course = Course("https://sit.instructure.com/api/v1", args.course_id)
     assignment_id = course.find_assignment_id_by_name(args.assignment_name)
     assignment = Assignment(args.assignment_name, assignment_id, course)
-    assignment.update_mastery_scores(student_username=args.student_username)
+    assignment.update_mastery_scores(student_name_match=args.student_username)
 
 
 if __name__ == "__main__":
