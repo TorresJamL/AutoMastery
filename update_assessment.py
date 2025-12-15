@@ -1,6 +1,6 @@
 import argparse
 
-from Assignment import Assignment
+from Assignment import Assignment, make_assignment_from_name
 from CourseInfo import Course
 
 
@@ -14,7 +14,7 @@ def main():
 
     course = Course("https://sit.instructure.com/api/v1", args.course_id, overwrite_assignment_json=True)
     assignment_id = course.find_assignment_id_by_name(args.assignment_name)
-    assignment = Assignment(args.assignment_name, assignment_id, course)
+    assignment = make_assignment_from_name(args.assignment_name, assignment_id, course)
     assignment.update_mastery_scores(student_name_match=args.student_username)
 
 
