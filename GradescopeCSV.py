@@ -31,15 +31,19 @@ def merge_exams(match):
     df = pd.concat(dfs, axis=0, join='inner', ignore_index=True)
     if "Exam_1" in match:
         df.to_csv(os.path.join("data", "exam1all.csv"))
-    else:
+    elif "Test_2" in match:
         df.to_csv(os.path.join("data", "exam2all.csv"))
+    elif "Test_3" in match:
+        df.to_csv(os.path.join("data", "exam3all.csv"))
+    else:
+        raise ValueError("Count not find file for match")
 
 
 
 
 if __name__ == "__main__":
     #merge_exams("Test_2")
-    merge_exams("Exam_1")
+    merge_exams("Test_2")
 
 
 

@@ -4,6 +4,7 @@ import pandas as pd
 import re
 import os
 from pathlib import Path
+from data_utils import assignment_match_to_csv_name
 
 import requests
 
@@ -15,16 +16,10 @@ class Assignment():
         self.name = name
         self.course = course
         self.assignment_id = id
+        csv_name = assignment_match_to_csv_name(self.name)
+        self.score_df = pd.read_csv(csv_name)
         self.rubric_id_to_qkeys = self.load_rubric_id_to_qkeys() #load from a json file
         self.rubric_id_to_total_pts = self.get_rubric_id_to_total_pts(self.rubric_id_to_qkeys)
-        if "Exam 1" in self.name:
-            csv_name = "data/exam1all.csv"
-        elif "Exam 2" in self.name:
-            csv_name = "data/exam2all.csv"
-        else:
-            raise ValueError(f"Could not find csv file for {self.name}")
-
-        self.score_df = pd.read_csv(csv_name)
 
     def load_rubric_id_to_qkeys(self):
         #looks for the filename
@@ -45,6 +40,7 @@ class Assignment():
         else:
             raise RuntimeError("Unable to find match")
 
+
     def get_rubric_id_to_total_pts(self, rubric_id_to_qkeys):
         rubric_id_to_total_pts = {}
         for rubric_id in rubric_id_to_qkeys:
@@ -54,32 +50,41 @@ class Assignment():
         return rubric_id_to_total_pts
 
     def select_rubric_id_to_qkeys(self):
-        # TODO eventually this should open the GUI to get me to match these myself. For now just hardcode
-        assert False
-        q3_keys = ['3.1: ai.  why did the tests pass? (1.0 pts)',
-                   '3.2: aii. test that would catch character going into wall (2.0 pts)',
-                   '3.3: bi. stack trace interpretation table (3.0 pts)',
-                   '3.4: bii. Stack trace description (2.0 pts)',
-                   '3.5: biii. editing get_next_loc (1.0 pts)',
-                   '3.6: c. debugging strategy (3.0 pts)']
+        """Returns a dictionary where the key is the rubric ID and the value is the rubric item name."""
+        rubric_id_to_rubric_data = {}
+        rubric_url = f"{self.course.PAGE_URL}/courses/{self.course.COURSE_ID}/assignments/{self.assignment_id}?include[]=rubric&include[]=rubric_association"
+        response = requests.get(rubric_url, headers=self.course.headers)
+        response.raise_for_status()
+        canvas_rubrics_data = response.json()
+        for rubric in canvas_rubrics_data['rubric']:
+            print(rubric) # print description and some more info about it
+            print(f"Rubric item description: {rubric['description']}")
 
-        unit_test_key = q3_keys[1]
-        stack_trace_key1 = q3_keys[2]
-        stack_trace_key2 = q3_keys[3]
-        fix_code_key = q3_keys[4]
+            # print df questions and corresponding indices
+            inferred_keys = self.infer_assignment_keys_from_df(self.score_df)
+            keys_for_rubric_item = []
+            # get the indices
+            for i, question_key in enumerate(inferred_keys):
+                print("##########################")
+                print(f"Subquestion {i} \n")
+                print(question_key)
+                res = input("Does this key correspond to the above rubric item? (y/n)")
+                if res == "y":
+                    keys_for_rubric_item.append(question_key)
+                print("##########################")
 
-        rubric_id_to_qkeys = {
-            "_8079": (unit_test_key,),
-            "_8474": (fix_code_key,),
-            "_3453": (stack_trace_key1, stack_trace_key2)
-        }
-        return rubric_id_to_qkeys
-
+            # wait for confirmation
+            print("Confirm that these are the correct question keys")
+            for question_key in keys_for_rubric_item:
+                print(f"Confirming question key: {question_key}")
+            print("Done: saving to the dictionary")
+            rubric_id_to_rubric_data[rubric['id']] = keys_for_rubric_item
+        return rubric_id_to_rubric_data
 
 
     def score_to_rubric_score(self, score):
         """Returns the score on the rubric given an assignment score."""
-        if score >= 0.95:
+        if score >= 0.98:
             return 4
         elif score >= 0.75:
             return 3
@@ -114,7 +119,11 @@ class Assignment():
             qkeys = self.rubric_id_to_qkeys[rubric_id]
             mastery_score = self.compute_mastery_score(rubric_id, qkeys, student_df)
             new_outcome["rubric_assessment"][str(rubric_id)] = {"points": mastery_score}
+        # Needs to be done without the score to work for some reason
+        out_response = requests.put(submission_url, headers=self.course.headers, json=new_outcome)
+        out_response.raise_for_status()
 
+        #Then make sure to update the score. I don't know why this is needed...
         out_response = requests.put(submission_url, headers=self.course.headers, json=new_outcome,
                                     data={"submission[posted_grade]": int(total_question_score)})
         print(f"{student_name} new outcome: {new_outcome}")
@@ -135,17 +144,21 @@ class Assignment():
 
     def infer_assignment_keys_from_df(self, student_df):
         assignment_keys = []
-        question_in_assignment_name = int(re.search(r'Question\s+(\d+)', self.name).group(1))
+        if "Exam" in self.name: #we should do some subclassing for this...
+            question_in_assignment_name = int(re.search(r'Question\s+(\d+)', self.name).group(1))
         for key in student_df.keys():
             if "pts" not in key:
                 continue
-            match = re.match(r'(\d+(?:\.\d+)?)\s*:', key)
-            if match:
-                question_in_key = int(match.group(1)[0])
-                if question_in_key == question_in_assignment_name:
-                    assignment_keys.append(key)
+            if "Exam" in self.name:
+                match = re.match(r'(\d+(?:\.\d+)?)\s*:', key)
+                if match:
+                    question_in_key = int(match.group(1)[0])
+                    if question_in_key == question_in_assignment_name:
+                        assignment_keys.append(key)
+                else:
+                    raise RuntimeError("Unable to find match for total question")
             else:
-                raise RuntimeError("Unable to find match for total question")
+                assignment_keys.append(key)
 
 
         return assignment_keys
