@@ -1,4 +1,5 @@
 from pathlib import Path
+import pandas as pd
 # Eventually this goes into a single json file per assignment
 def assignment_match_to_csv_name(name):
     if "Exam 1" in name:
@@ -19,3 +20,16 @@ def assignment_match_to_csv_name(name):
         raise ValueError(f"Could not find csv file for {name}")
     return Path("data") / csv_name
 
+def find_student_df_by_SID(df, sid, student_name ="Student name not included"):
+    assert pd.api.types.is_integer_dtype(df["SID"])
+    if int(sid) not in list(df["SID"]):
+        raise StudentNotFoundError(f"Could not find student: {student_name}")
+    student_df = df.loc[df["SID"] == int(sid)].squeeze()
+    return student_df
+
+class StudentNotFoundError(RuntimeError):
+    pass
+
+
+class StudentSubmissionNotFoundError(RuntimeError):
+    pass

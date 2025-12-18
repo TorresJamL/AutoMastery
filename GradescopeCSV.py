@@ -2,16 +2,20 @@ import pandas as pd
 from pathlib import Path
 import os
 
-''' Takes in a list of folder names that should be in same level as this file
-    and returns a dict of (we can change this btw) "exam1", "exam2"... to 
-    properly formatted CSV's for each one
-    The CSV's include subquestions merged over all sections
-'''
 def merge_exams(match):
-    folder_path = Path("data")
+    """
+    Saves an examNall.csv from an input CSV that matches a particular string, match
+    corresponding to Test or Exam N
 
+    Designed for when there are multiple CSVs for a single test.
+
+    Args:
+    match: The name of the exam to match in the original CSV file
+
+    Does not return anything
+    """
+    folder_path = Path("data")
     dfs = []
-    ungraded = []
 
     # read filenames from each csv and append a DataFrame to dfs
     for f in os.listdir(folder_path):
@@ -42,12 +46,6 @@ def merge_exams(match):
 
 
 if __name__ == "__main__":
-    #merge_exams("Test_2")
-    merge_exams("Test_2")
+    exams_to_merge = ["Exam_1", "Test_2", "Test_3"]
 
 
-
-
-# Let's not do this for now
-# add in the students with ungraded exams
-#df = pd.concat([df, ungraded], axis=0, join='outer', ignore_index=True)
