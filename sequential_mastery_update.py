@@ -12,7 +12,6 @@ def main():
 
 
     course = Course("https://sit.instructure.com/api/v1", args.course_id, overwrite_assignment_json=True)
-    """
     assignments_by_order = [
            #"Lab 2",
            #"Lab 3",
@@ -30,9 +29,7 @@ def main():
         #"Exam 2 Question 1",
         "Exam 2 Question 2",
         "Exam 2 Question 4",
-    """
-        
-    assignments_by_order = ["Exam 2 Question 5",
+        "Exam 2 Question 5",
         "Exam 2 Question 3",
         "Lab 9",
         "Lab 10",
