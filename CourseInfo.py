@@ -27,8 +27,14 @@ class Course():
         }
         self.mastery = Mastery(self.PAGE_URL, self.COURSE_ID, self.headers) 
 
-        self.student_pairs = self.get_student_pairs(overwrite_student_json) # {id : name}, ...
-        self.assignment_pairs = self.get_assignment_pairs(overwrite_assignment_json) # {assignment id : assignment name}, ...
+        self.student_data_dict = self.get_student_data(overwrite_student_json) # {id : name}, ...
+        self.assignment_id_to_name = self.get_assignment_pairs(overwrite_assignment_json) # {assignment id : assignment name}, ...
+
+    def find_assignment_id_by_name(self, assignment_name):
+        for assignment_id in self.assignment_id_to_name:
+            if assignment_name in self.assignment_id_to_name[assignment_id]:
+                return assignment_id
+        raise RuntimeError(f"Assignment name '{assignment_name}' not found")
 
     def get_students(self):
         """
@@ -62,20 +68,24 @@ class Course():
                 break
         return all_students
     
-    def get_student_pairs(self, should_overwrite = False):
+    def get_student_data(self, should_overwrite = False):
         """Returns a dictionary where the key is the student ID and the value is the student name."""
         if Path("student_data.json").exists() and not should_overwrite:
             with open("student_data.json", 'r') as student_data_file:
                 return json.load(student_data_file) 
-        else: 
-            student_dict = {}
+        else:
+            sid_to_student_data_dict = {}
             for student in self.get_students():
-                student_dict[student['id']] = student['name']
+                student_data_dict = {}
+                keys_in_dict = ["id", "name", "short_name", "email", "sis_user_id", "sortable_name"]
+                for key in keys_in_dict:
+                    student_data_dict[key] = student[key]
+                sid_to_student_data_dict[student["sis_user_id"]] = student_data_dict
 
             with open("student_data.json", 'w+') as student_data_file:
-                json.dump(student_dict, student_data_file, indent=4)
+                json.dump(sid_to_student_data_dict, student_data_file, indent=4)
 
-            return student_dict
+            return sid_to_student_data_dict
     
     def get_assignments(self):
         """
@@ -128,7 +138,7 @@ class Course():
         Args:
             assignment_id (int): 
         """
-        self.mastery.calc_assignment_outcomes(assignment_id, self.student_pairs)
+        self.mastery.calc_assignment_outcomes(assignment_id, self.student_data_dict)
     
     def update_assignment_outcomes(self, assignment_id):
         """
