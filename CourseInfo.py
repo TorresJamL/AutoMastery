@@ -128,7 +128,7 @@ class Course():
     def get_assignment_pairs(self, should_overwrite = False):
         """Returns a dictionary where the key is the assignment ID and the value is the assignment name."""
         if (self.course_config_root / "assignment_data.json").exists() and not should_overwrite:
-            with open("assignment_data.json", 'r') as assignment_data_file:
+            with open(self.course_config_root / "assignment_data.json", 'r') as assignment_data_file:
                 return json.load(assignment_data_file) 
         else:
             assignment_dict = {}
