@@ -8,26 +8,6 @@ class Mastery():
 
         self.outcome_updates_dict = {} # {assignment id : calculated outcomes}
 
-    def get_assignment_rubrics(self, assignment_id):
-        """Returns a dictionary where the key is the rubric ID and the value is the rubric item name."""
-        rubric_url = f"{self.PAGE_URL}/courses/{self.COURSE_ID}/assignments/{assignment_id}?include[]=rubric&include[]=rubric_association"
-        response = requests.get(rubric_url, headers=self.headers)
-        response.raise_for_status()
-
-        rubrics_data = response.json()
-
-        rubric_pairs = {}
-        for i in range(len(rubrics_data['rubric'])):
-            rubric_pairs[rubrics_data['rubric'][i]['id']] = rubrics_data['rubric'][i]['description']
-        return rubric_pairs
-    
-    def __score_to_rubric_score(self, score):
-        """Returns the score on the rubric given an assignment score."""
-        if score >= 90: return 4
-        elif score >= 80: return 3
-        elif score >= 60: return 2
-        elif score >= 40: return 1
-        else: return 0
 
     def calc_assignment_outcomes(self, assignment_id, student_pairs:dict):
         """
