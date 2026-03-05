@@ -1,4 +1,7 @@
 import json
+import os
+
+import tqdm
 from abc import ABC, abstractmethod
 from typing import Union, Any
 
@@ -7,7 +10,8 @@ import pandas as pd
 import re
 from pathlib import Path
 
-from data_utils import assignment_match_to_csv_name, StudentNotFoundError, StudentSubmissionNotFoundError, find_student_df_by_SID
+from data_utils import assignment_match_to_csv_name, StudentNotFoundError, StudentSubmissionNotFoundError, \
+    find_student_df_by_SID, RubricNotFoundError, find_csv_in_dir
 from CourseInfo import Course
 
 import requests
@@ -30,6 +34,24 @@ class Assignment(ABC):
         self.name = name
         self.course = course
         self.assignment_id = assignment_id
+        self.assignment_config_path = self.course.course_config_root / f"assignment_{assignment_id}"
+        if os.path.exists(self.assignment_config_path / "score_thresholds.json"):
+            with open(self.assignment_config_path / "score_thresholds.json") as f:
+                self.score_thresholds = json.load(f)
+        else:
+            self.score_thresholds = {}
+            threshold_defaults = {"Exceeds Mastery":0.99, "Mastery":0.75, "Near Mastery":0.5, "Below Mastery":0.25}
+            for threshold in threshold_defaults.keys():
+                user_threshold = input(f"Enter threshold for {threshold} or <Enter> for default")
+                if user_threshold == "":
+                   threshold_value = threshold_defaults[threshold]
+                else:
+                    threshold_value = float(user_threshold)
+
+                self.score_thresholds[threshold] = threshold_value
+            with open(self.assignment_config_path / "score_thresholds.json", "w") as f:
+                json.dump(self.score_thresholds, f)
+
 
     @property
     @abstractmethod
@@ -64,13 +86,13 @@ class Assignment(ABC):
             A mastery rubric score from 1 to 4.
 
         """
-        if score >= 0.99:
+        if score >= self.score_thresholds["Exceeds Mastery"]:
             return 4
-        elif score >= 0.75:
+        elif score >= self.score_thresholds["Mastery"]:
             return 3
-        elif score >= 0.5:
+        elif score >= self.score_thresholds["Near Mastery"]:
             return 2
-        elif score >= 0.25:
+        elif score >= self.score_thresholds["Below Mastery"]:
             return 1
         else:
             return 0
@@ -87,7 +109,7 @@ class Assignment(ABC):
 
         """
         student_data_dict = self.course.student_data_dict #read only
-        for sid in student_data_dict.keys():
+        for sid in tqdm.tqdm(student_data_dict.keys()):
             if student_name_match is not None:
                 if student_name_match not in student_data_dict[sid]["name"]:
                     continue
@@ -117,13 +139,18 @@ class Assignment(ABC):
 
         # Needs to be done without the score to work for some reason
         out_response = requests.put(submission_url, headers=self.course.headers, json=new_outcome)
-        out_response.raise_for_status()
+        try:
+            out_response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            print(e)
+            print(f"Unable to update for {student_name}")
+            return
 
         if self.need_to_update_total_question_score:
             total_question_score = self.compute_total_question_score(sid, student_name)
             # Then make sure to update the score. I don't know why this is needed...
             out_response = requests.put(submission_url, headers=self.course.headers, json=new_outcome,
-                                        data={"submission[posted_grade]": int(total_question_score)})
+                                        data={"submission[posted_grade]": float(total_question_score)})
             out_response.raise_for_status()
 
     def compute_total_question_score(self, sid:int, student_name:str)->int:
@@ -150,14 +177,39 @@ class LoadFromCSVAssignment(Assignment):
     """
     def __init__(self, name:str, assignment_id:int, course:Course):
         super().__init__(name, assignment_id, course)
-        csv_name = assignment_match_to_csv_name(self.name)
-        self.score_df = pd.read_csv(csv_name)
+
+        # Set up data directories
+        self.assignment_data_path = self.course.course_data_root / f"assignment_{assignment_id}"
+        if not os.path.exists(self.assignment_data_path):
+            os.makedirs(str(self.assignment_data_path))
+            print("Created assignment data directory")
+
+        # Assumes this file has been created already
+        with open(self.assignment_config_path / "assignment.json", 'r', encoding='utf-8') as file:
+            data_dict = json.load(file)
+            if "csv_path" not in data_dict:
+                potential_csv_file_name = input(f"Enter a CSV file name, or type press and put the file in {self.assignment_data_path}. Enter when done")
+                if potential_csv_file_name.endswith(".csv"):
+                    csv_file_name = potential_csv_file_name
+                else:
+                    csv_file_name = find_csv_in_dir(self.assignment_data_path)
+                print(f"Using csv {csv_file_name}")
+                data_dict["csv_path"] = csv_file_name
+            with open(self.assignment_config_path / "assignment.json", 'w') as fp:
+                json.dump(data_dict, fp)
+            csv_file_name = data_dict["csv_path"]
+
+        self.score_df = pd.read_csv(csv_file_name)
         self.rubric_id_to_qkeys = self.load_rubric_id_to_qkeys() #load from a json file
         self.rubric_id_to_total_pts = self.get_rubric_id_to_total_pts(self.rubric_id_to_qkeys)
 
     @property
     def need_to_update_total_question_score(self)->bool:
         return True
+
+    @property
+    def need_to_update_mastery_score(self)->bool:
+        return not ("Exam 2 Question 2" in self.name)
 
     def load_rubric_id_to_qkeys(self)->dict:
         """
@@ -252,7 +304,7 @@ class LoadFromCSVAssignment(Assignment):
 
 
 
-    def compute_new_outcome(self, sid:str, student_name:str, submission_url:str, verbose:bool=False) -> dict:
+    def compute_new_outcome(self, sid:str, student_name:str, submission_url:str, verbose:bool=True) -> dict:
         student_df = find_student_df_by_SID(self.score_df, sid, student_name = student_name)
         if student_name is None:
             return None
@@ -335,7 +387,10 @@ class ExamQuestion(LoadFromCSVAssignment):
                 raise RuntimeError("Unable to find match for total question")
         return assignment_keys
 
-class Homework(LoadFromCSVAssignment):
+class MultiScoreMultiOutcomeAssignment(LoadFromCSVAssignment):
+    """
+    A class that can handle multiple scores and multiple outcomes
+    """
     def infer_assignment_keys_from_df(self, student_df:pd.DataFrame) -> list:
         assignment_keys = []
         for key in student_df.keys():
@@ -344,22 +399,27 @@ class Homework(LoadFromCSVAssignment):
             assignment_keys.append(key)
         return assignment_keys
 
-class Lab(Assignment):
+class SingleScoreSingleOutcomeAssignment(Assignment):
 
     @property
     def need_to_update_total_question_score(self)->bool:
         return False
 
-    def compute_new_outcome(self, sid:str, student_name:str, submission_url:str):
+    def compute_new_outcome(self, sid:str, student_name:str, submission_url:str, default_0=True):
         response = requests.get(submission_url, headers=self.course.headers)
 
         submission_data: dict = response.json()
-        if "score" not in submission_data:
-            raise StudentSubmissionNotFoundError(f"Could not find submission: {submission_url}")
+        #if "score" not in submission_data: TODO delete this if not needed
+        #    if not default_0:
+        #        raise StudentSubmissionNotFoundError(f"Could not find submission: {submission_url}")
 
-        score = submission_data["score"]
-        if score is None:
-            raise StudentSubmissionNotFoundError(f"Could not find submission: {student_name}")
+        if "score" not in submission_data or submission_data["score"] is None:
+            if default_0:
+                score = 0
+            else:
+                raise StudentSubmissionNotFoundError(f"Could not find submission: {student_name}")
+        else:
+            score = submission_data["score"]
 
         new_outcome = {
             "rubric_assessment": {}}
@@ -368,6 +428,9 @@ class Lab(Assignment):
         response = requests.get(rubric_url, headers=self.course.headers)
         response.raise_for_status()
         canvas_rubrics_data = response.json()
+        if "rubric" not in canvas_rubrics_data:
+            raise RubricNotFoundError(f"Could not find rubric for Assignment # {self.assignment_id}. Please add on to the Canvas assignment and add at least one outcome")
+
         for rubric in canvas_rubrics_data['rubric']:
             mastery_score = self.score_to_rubric_score(score/100)
             new_outcome["rubric_assessment"][str(rubric["id"])] = {"points": mastery_score}
@@ -386,11 +449,22 @@ def make_assignment_from_name(assignment_name, assignment_id, course) -> Assignm
     Returns: Assignment object corresponding of the type inferred by the name
 
     """
-    if "Exam" in assignment_name or "Test" in assignment_name:
-        assignment_cls = ExamQuestion
-    elif "Homework" in assignment_name:
-        assignment_cls = Homework
-    elif "Lab" in assignment_name:
-        assignment_cls = Lab
+    assignment_dir = course.course_config_root / f"assignment_{assignment_id}"
+    possible_classes = ["ExamQuestion", "MultiScoreMultiOutcomeAssignment", "SingleScoreSingleOutcomeAssignment"]
+    if not os.path.exists(assignment_dir / "assignment.json"):
+        os.makedirs(assignment_dir, exist_ok=True)
+        assignment_cls_input = input(f"Assignment class : SS or {possible_classes}")
+        if assignment_cls_input == "SS":
+            assignment_cls_input = "SingleScoreSingleOutcomeAssignment" #shorthand
+        if assignment_cls_input == "EQ":
+            assignment_cls_input = "ExamQuestion" #shorthand
+        assert assignment_cls_input in possible_classes
+        data_dict = {"assignment_cls": assignment_cls_input}
+        with open(assignment_dir / "assignment.json", 'w') as fp:
+            json.dump(data_dict, fp)
+    else:
+        with open(assignment_dir / "assignment.json", 'r', encoding='utf-8') as file:
+            data_dict = json.load(file)
+    assignment_cls = eval(data_dict["assignment_cls"])
     assignment = assignment_cls(assignment_name, assignment_id, course)
     return assignment

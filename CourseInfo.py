@@ -1,4 +1,5 @@
 import requests
+import os
 from _t_ import TOKEN
 from pathlib import Path
 import json
@@ -25,7 +26,14 @@ class Course():
         self.headers = {
             "Authorization": f"Bearer {TOKEN}"
         }
-        self.mastery = Mastery(self.PAGE_URL, self.COURSE_ID, self.headers) 
+        self.mastery = Mastery(self.PAGE_URL, self.COURSE_ID, self.headers)
+        self.course_config_root = Path("config") / f"course_id_{self.COURSE_ID}"
+        # Data is sensitive student info like grades
+        self.course_data_root = Path("data") / f"course_id_{self.COURSE_ID}"
+        if not os.path.exists(self.course_config_root):
+            os.makedirs(self.course_config_root)
+        if not os.path.exists(self.course_data_root):
+            os.makedirs(self.course_data_root)
 
         self.student_data_dict = self.get_student_data(overwrite_student_json) # {id : name}, ...
         self.assignment_id_to_name = self.get_assignment_pairs(overwrite_assignment_json) # {assignment id : assignment name}, ...
@@ -70,8 +78,8 @@ class Course():
     
     def get_student_data(self, should_overwrite = False):
         """Returns a dictionary where the key is the student ID and the value is the student name."""
-        if Path("student_data.json").exists() and not should_overwrite:
-            with open("student_data.json", 'r') as student_data_file:
+        if (self.course_data_root /  "student_data.json").exists() and not should_overwrite:
+            with open(self.course_data_root / "student_data.json", 'r') as student_data_file:
                 return json.load(student_data_file) 
         else:
             sid_to_student_data_dict = {}
@@ -82,7 +90,7 @@ class Course():
                     student_data_dict[key] = student[key]
                 sid_to_student_data_dict[student["sis_user_id"]] = student_data_dict
 
-            with open("student_data.json", 'w+') as student_data_file:
+            with open(self.course_data_root / "student_data.json", 'w+') as student_data_file:
                 json.dump(sid_to_student_data_dict, student_data_file, indent=4)
 
             return sid_to_student_data_dict
@@ -119,7 +127,7 @@ class Course():
     
     def get_assignment_pairs(self, should_overwrite = False):
         """Returns a dictionary where the key is the assignment ID and the value is the assignment name."""
-        if Path("assignment_data.json").exists() and not should_overwrite:
+        if (self.course_config_root / "assignment_data.json").exists() and not should_overwrite:
             with open("assignment_data.json", 'r') as assignment_data_file:
                 return json.load(assignment_data_file) 
         else:
@@ -127,7 +135,7 @@ class Course():
             for assignment in self.get_assignments() :
                 assignment_dict[assignment['id']] = assignment['name']
 
-            with open("assignment_data.json", 'w+') as assignment_data_file:
+            with open(self.course_config_root / "assignment_data.json", 'w+') as assignment_data_file:
                 json.dump(assignment_dict, assignment_data_file, indent=4)
         
             return assignment_dict

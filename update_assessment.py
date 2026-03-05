@@ -1,6 +1,6 @@
 import argparse
 
-from Assignment import Assignment, make_assignment_from_name
+from Assignment import  make_assignment_from_name
 from CourseInfo import Course
 
 
