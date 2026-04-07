@@ -218,7 +218,7 @@ class LoadFromCSVAssignment(Assignment):
             and makes one if not.
         """
         #looks for the filename
-        filename = Path('rubric_id_to_question_keys') / f"{self.assignment_id}.json"
+        filename = self.assignment_config_path / f"rubric_id_to_question_keys.json"
         if not filename.exists():
             rubric_id_to_qkeys = self.select_rubric_id_to_qkeys
             with open(filename, "w") as json_file:
@@ -453,7 +453,7 @@ def make_assignment_from_name(assignment_name, assignment_id, course) -> Assignm
     possible_classes = ["ExamQuestion", "MultiScoreMultiOutcomeAssignment", "SingleScoreSingleOutcomeAssignment"]
     if not os.path.exists(assignment_dir / "assignment.json"):
         os.makedirs(assignment_dir, exist_ok=True)
-        assignment_cls_input = input(f"Assignment class : SS or {possible_classes}")
+        assignment_cls_input = input(f"{assignment_name} Assignment class : SS or {possible_classes}")
         if assignment_cls_input == "SS":
             assignment_cls_input = "SingleScoreSingleOutcomeAssignment" #shorthand
         if assignment_cls_input == "EQ":
