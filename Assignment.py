@@ -16,10 +16,17 @@ from CourseInfo import Course
 
 import requests
 
+from _t_ import GS_PWD, GS_USR 
+
+from gradescope import * #! Importing from the gradescope api takes quite a bit.
+gs = Gradescope(
+    username= GS_USR, #* Note, Your user might be the email associated with the account. U
+    password= GS_PWD  #* The password used for the user's gs account
+)
+
 ''' Class to hold data for an assignment, including questions and subquestions
     Note: Canvas assignments are one assignment per lab/HW/whatever, but PER QUESTION for each exam question.
 '''
-
 
 class Assignment(ABC):
     def __init__(self, name: str, assignment_id: int, course: Course):
@@ -35,6 +42,10 @@ class Assignment(ABC):
         self.course = course
         self.assignment_id = assignment_id
         self.assignment_config_path = self.course.course_config_root / f"assignment_{assignment_id}"
+
+        if not os.path.exists(self.assignment_config_path): # Make directory for assignment if doesn't exist already.
+            os.mkdir(self.assignment_config_path)
+
         if os.path.exists(self.assignment_config_path / "score_thresholds.json"):
             with open(self.assignment_config_path / "score_thresholds.json") as f:
                 self.score_thresholds = json.load(f)
@@ -115,7 +126,6 @@ class Assignment(ABC):
                     continue
             self.update_mastery_score_for_student(int(sid), student_data_dict[sid])
 
-
     def update_mastery_score_for_student(self, sid:int, student_data_dict:dict):
         """
         Updates mastery score for a particular student on Canvas
@@ -177,24 +187,44 @@ class LoadFromCSVAssignment(Assignment):
     """
     def __init__(self, name:str, assignment_id:int, course:Course):
         super().__init__(name, assignment_id, course)
-
         # Set up data directories
         self.assignment_data_path = self.course.course_data_root / f"assignment_{assignment_id}"
         if not os.path.exists(self.assignment_data_path):
             os.makedirs(str(self.assignment_data_path))
             print("Created assignment data directory")
 
+        #! Create assignments JSON if does not exist already. 
+        if not os.path.exists(self.assignment_config_path / "assignment.json"):
+            with open(self.assignment_config_path / "assignment.json", 'x') as temp_f:
+                print("Created file:", str(self.assignment_config_path / "assignment.json"))
+                json.dump({}, temp_f)
+    
+        gs_courses = gs.get_courses(role=Role.INSTRUCTOR)
+        gs_course = self.get_course_by_name(gs_courses, course.course_name)       
+
         # Assumes this file has been created already
         with open(self.assignment_config_path / "assignment.json", 'r', encoding='utf-8') as file:
             data_dict = json.load(file)
             if "csv_path" not in data_dict:
-                potential_csv_file_name = input(f"Enter a CSV file name, or type press and put the file in {self.assignment_data_path}. Enter when done")
+                potential_csv_file_name = input(f"Enter a CSV file name, or type press and put the file in {self.assignment_data_path}. Enter when done: ")
+                #? Using my own deduction from the code
                 if potential_csv_file_name.endswith(".csv"):
                     csv_file_name = potential_csv_file_name
+                    # File path of the csv
+                    csv_file_path = self.assignment_data_path / csv_file_name 
+
+                    # Get assignment
+                    assignments = gs.get_assignments(gs_course)
+                    _assignment = self.get_assignment_by_name(assignments, name)
+
+                    # Save the df to data/
+                    grade_df = gs.get_assignment_grades(_assignment)
+                    save_csv(csv_file_path, grade_df)
                 else:
                     csv_file_name = find_csv_in_dir(self.assignment_data_path)
                 print(f"Using csv {csv_file_name}")
-                data_dict["csv_path"] = csv_file_name
+
+                data_dict["csv_path"] = csv_file_path
             with open(self.assignment_config_path / "assignment.json", 'w') as fp:
                 json.dump(data_dict, fp)
             csv_file_name = data_dict["csv_path"]
@@ -202,6 +232,23 @@ class LoadFromCSVAssignment(Assignment):
         self.score_df = pd.read_csv(csv_file_name)
         self.rubric_id_to_qkeys = self.load_rubric_id_to_qkeys() #load from a json file
         self.rubric_id_to_total_pts = self.get_rubric_id_to_total_pts(self.rubric_id_to_qkeys)
+    
+    ###! Start of Jamil Shenanigans
+    ## This is very brutish - not the functionality as much as the fact i just stole these from you and put them here.
+    ## This is notably a temporary patch while I figure out an organized way to do this. Which shouldn't take long.
+    def get_course_by_name(self, courses:list[Course], course_name:str) -> Course:
+        for course in courses:
+            if course_name in course.full_name:
+                print(course.full_name)
+                return course
+        raise ValueError(f"Could not find course name:  {course_name}")
+
+    def get_assignment_by_name(self, assignments, assignment_name):
+        for assignment in assignments:
+            if assignment_name in assignment.title:
+                return assignment
+        raise ValueError(f"Could not find assignment name:  {assignment_name}")
+    ###! End of Jamil Shenanigans
 
     @property
     def need_to_update_total_question_score(self)->bool:
@@ -350,7 +397,7 @@ class LoadFromCSVAssignment(Assignment):
         mastery_score: int = self.score_to_rubric_score(score)
         return mastery_score
 
-    @abstractmethod
+    # @abstractmethod
     def infer_assignment_keys_from_df(self, student_df:pd.DataFrame) -> list:
         """
         :param student_df:
