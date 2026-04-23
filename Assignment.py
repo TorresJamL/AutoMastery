@@ -22,7 +22,7 @@ import requests
 
 
 class Assignment(ABC):
-    def __init__(self, name: str, assignment_id: int, course: Course):
+    def __init__(self, name: str, assignment_id: int, course: Course, update_from_gradescope:bool=False):
         """
 
         Args:
@@ -34,6 +34,7 @@ class Assignment(ABC):
         self.name = name
         self.course = course
         self.assignment_id = assignment_id
+        self.update_from_gradescope = False
         self.assignment_config_path = self.course.course_config_root / f"assignment_{assignment_id}"
         if os.path.exists(self.assignment_config_path / "score_thresholds.json"):
             with open(self.assignment_config_path / "score_thresholds.json") as f:
@@ -175,8 +176,8 @@ class LoadFromCSVAssignment(Assignment):
     An assignment that's loaded from a Gradescope CSV
     The name maps to a CSV file (not the cleanest I know...)
     """
-    def __init__(self, name:str, assignment_id:int, course:Course):
-        super().__init__(name, assignment_id, course)
+    def __init__(self, name:str, assignment_id:int, course:Course, update_from_gradescope:bool=False):
+        super().__init__(name, assignment_id, course, update_from_gradescope)
 
         # Set up data directories
         self.assignment_data_path = self.course.course_data_root / f"assignment_{assignment_id}"
@@ -184,11 +185,23 @@ class LoadFromCSVAssignment(Assignment):
             os.makedirs(str(self.assignment_data_path))
             print("Created assignment data directory")
 
+        csv_file_name = self.get_csv_file_name()
+        if self.update_from_gradescope:
+            # HOOK for update code
+            pass
+
+
+        self.score_df = pd.read_csv(csv_file_name)
+        self.rubric_id_to_qkeys = self.load_rubric_id_to_qkeys() #load from a json file
+        self.rubric_id_to_total_pts = self.get_rubric_id_to_total_pts(self.rubric_id_to_qkeys)
+
+    def get_csv_file_name(self) -> Any:
         # Assumes this file has been created already
         with open(self.assignment_config_path / "assignment.json", 'r', encoding='utf-8') as file:
             data_dict = json.load(file)
             if "csv_path" not in data_dict:
-                potential_csv_file_name = input(f"Enter a CSV file name, or type press and put the file in {self.assignment_data_path}. Enter when done")
+                potential_csv_file_name = input(
+                    f"Enter a CSV file name, or type press and put the file in {self.assignment_data_path}. Enter when done")
                 if potential_csv_file_name.endswith(".csv"):
                     csv_file_name = potential_csv_file_name
                 else:
@@ -198,10 +211,7 @@ class LoadFromCSVAssignment(Assignment):
             with open(self.assignment_config_path / "assignment.json", 'w') as fp:
                 json.dump(data_dict, fp)
             csv_file_name = data_dict["csv_path"]
-
-        self.score_df = pd.read_csv(csv_file_name)
-        self.rubric_id_to_qkeys = self.load_rubric_id_to_qkeys() #load from a json file
-        self.rubric_id_to_total_pts = self.get_rubric_id_to_total_pts(self.rubric_id_to_qkeys)
+        return csv_file_name
 
     @property
     def need_to_update_total_question_score(self)->bool:
