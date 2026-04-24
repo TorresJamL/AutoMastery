@@ -1,5 +1,7 @@
 from gradescope import *
 
+username = input("Enter GS user: ")
+pwd = input("Enter GS pwd: ")
 gs = Gradescope(username, pwd)
 
 def get_course_by_name(courses, course_name):
