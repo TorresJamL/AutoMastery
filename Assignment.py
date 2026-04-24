@@ -1,3 +1,4 @@
+import io
 import json
 import os
 
@@ -193,12 +194,16 @@ class LoadFromCSVAssignment(Assignment):
         if self.update_from_gradescope:
             # Get assignment
             assignments = self.course.gradescope.get_assignments(self.course.gs_course)
-            _assignment = self.get_gradescope_assignment_by_name(assignments, name)
+            gradescope_assignment = self.get_gradescope_assignment_by_name(assignments, name)
 
             # Save the df to data/
-            grade_df = self.course.gradescope.get_assignment_grades(_assignment)
+            #grade_df = self.course.gradescope.get_assignment_grades(gradescope_assignment)
+            response = self.course.gradescope.session.get(gradescope_assignment.get_grades_url())
+            self.course.gradescope._response_check(response)
+            grade_df = pd.read_csv(io.StringIO(response.content.decode('utf-8')))
             grade_df = grade_df[grade_df["First Name"] != "unidentified"].reset_index(drop=True)
-            save_csv(csv_file_name+"extra", grade_df)
+            grade_df["SID"] = grade_df["SID"].astype("Int64")
+            save_csv(csv_file_name, grade_df)
 
         self.score_df = pd.read_csv(csv_file_name)
         self.rubric_id_to_qkeys = self.load_rubric_id_to_qkeys() #load from a json file
