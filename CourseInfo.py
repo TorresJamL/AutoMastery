@@ -26,7 +26,7 @@ class Course():
         regardless of whether they exist or not.
         """
         self.PAGE_URL = page_url
-        self.COURSE_ID = course_id #80807 for CS115 Fall 25
+        self.COURSE_ID = course_id
         self.headers = {
             "Authorization": f"Bearer {TOKEN}"
         }
@@ -48,13 +48,9 @@ class Course():
         gs_courses = self.gradescope.get_courses(role=Role.INSTRUCTOR)
         self.gs_course = self.get_gradescope_course_by_name(gs_courses, self.course_name)
 
-    ###! Start of Jamil Shenanigans
-    ## This is very brutish - not the functionality as much as the fact i just stole these from you and put them here.
-    ## This is notably a temporary patch while I figure out an organized way to do this. Which shouldn't take long.
     def get_gradescope_course_by_name(self, courses:list[GradescopeCourse], course_name:str) -> GradescopeCourse:
         for course in courses:
             if course_name in course.full_name:
-                print(course.full_name)
                 return course
         raise ValueError(f"Could not find course name:  {course_name}")
 
