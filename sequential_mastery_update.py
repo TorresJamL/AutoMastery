@@ -1,4 +1,5 @@
 import argparse
+import os
 
 from Assignment import Assignment, make_assignment_from_name
 from CourseInfo import Course
@@ -6,40 +7,23 @@ from CourseInfo import Course
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--course_id", help="Course ID", default=80807)
+    parser.add_argument("-c", "--course_id", help="Course ID", default=84995)
     parser.add_argument("-s", "--student_name_match",  help="")
+    parser.add_argument("-f", "--first_assessment", help="which assessment to start with", default=None)
     args = parser.parse_args()
 
 
     course = Course("https://sit.instructure.com/api/v1", args.course_id, overwrite_assignment_json=True)
-    assignments_by_order = [
-           #"Lab 2",
-           #"Lab 3",
-           #"Homework 2",
-           "Lab 4",
-           "Exam 1 Question 1",
-           "Exam 1 Question 2",
-           "Exam 1 Question 3",
-           "Exam 1 Question 4",
-           "Lab 5",
-        "Lab 6",
-        "Lab 7",
-        "Homework 4",
-        "Lab 8",
-        #"Exam 2 Question 1",
-        "Exam 2 Question 2",
-        "Exam 2 Question 4",
-        "Exam 2 Question 5",
-        "Exam 2 Question 3",
-        "Lab 9",
-        "Lab 10",
-        "Homework 5",
-        "Lab 11",
-        "Exam 3 Question 1",
-        "Exam 3 Question 2",
-        "Exam 3 Question 3",
-    ]
+    assignment_order_fn = course.course_config_root / "assignment_order.txt"
+    if not os.path.exists(assignment_order_fn):
+        print(f"Could not find assignment order file {assignment_order_fn}. Please make a .txt file with the names"
+              f"of assignments in the order of recency")
+    with open(assignment_order_fn) as f:
+        assignments_by_order = f.read().splitlines()
+
     for assignment_name in assignments_by_order:
+        if args.first_assessment and args.first_assessment != assignment_name:
+            continue
         assignment_id = course.find_assignment_id_by_name(assignment_name)
         assignment = make_assignment_from_name(assignment_name, assignment_id, course)
         print(f"Updating assignment {assignment_name}")
