@@ -1,4 +1,8 @@
 import requests
+from _t_ import GS_PWD, GS_USR
+
+from gradescope import Gradescope, Role #! Importing from the gradescope api takes quite a bit.
+from gradescope import Course as GradescopeCourse
 import os
 from _t_ import TOKEN
 from pathlib import Path
@@ -22,10 +26,11 @@ class Course():
         regardless of whether they exist or not.
         """
         self.PAGE_URL = page_url
-        self.COURSE_ID = course_id #80807 for CS115
+        self.COURSE_ID = course_id
         self.headers = {
             "Authorization": f"Bearer {TOKEN}"
         }
+        self.course_name = self.get_course_name()
         self.mastery = Mastery(self.PAGE_URL, self.COURSE_ID, self.headers)
         self.course_config_root = Path("config") / f"course_id_{self.COURSE_ID}"
         # Data is sensitive student info like grades
@@ -37,6 +42,29 @@ class Course():
 
         self.student_data_dict = self.get_student_data(overwrite_student_json) # {id : name}, ...
         self.assignment_id_to_name = self.get_assignment_pairs(overwrite_assignment_json) # {assignment id : assignment name}, ...
+        self.gradescope =  Gradescope(
+             username=GS_USR,  # * Note, Your user might be the email associated with the account. U
+             password=GS_PWD)  # * The password used for the user's gs account )
+        gs_courses = self.gradescope.get_courses(role=Role.INSTRUCTOR)
+        self.gs_course = self.get_gradescope_course_by_name(gs_courses, self.course_name)
+
+    def get_gradescope_course_by_name(self, courses:list[GradescopeCourse], course_name:str) -> GradescopeCourse:
+        for course in courses:
+            if course_name in course.full_name:
+                return course
+        raise ValueError(f"Could not find course name:  {course_name}")
+
+
+    def get_course_name(self):
+        course_url = f"{self.PAGE_URL}/courses/{self.COURSE_ID}"
+        response = requests.get(course_url, headers=self.headers)
+        if not response.ok:
+            raise RuntimeError(f"[get_course_name]:\n"\
+                               f"| status code: {response.status_code}\n"\
+                               f"| text: {response.text}")
+
+        resp_json = response.json()
+        return resp_json["name"]
 
     def find_assignment_id_by_name(self, assignment_name):
         for assignment_id in self.assignment_id_to_name:
@@ -77,7 +105,11 @@ class Course():
         return all_students
     
     def get_student_data(self, should_overwrite = False):
-        """Returns a dictionary where the key is the student ID and the value is the student name."""
+        """Returns a dictionary where the key is the student ID and the value is the student name.
+
+        Can raise a key error when the user running Automastery is not a teacher. 
+        email & sis_user_id require Teacher permissions on the chosen course.
+        """
         if (self.course_data_root /  "student_data.json").exists() and not should_overwrite:
             with open(self.course_data_root / "student_data.json", 'r') as student_data_file:
                 return json.load(student_data_file) 
