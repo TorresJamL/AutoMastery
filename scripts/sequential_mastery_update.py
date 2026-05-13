@@ -20,10 +20,12 @@ def main():
               f"of assignments in the order of recency")
     with open(assignment_order_fn) as f:
         assignments_by_order = f.read().splitlines()
-
+    found_first_assessment = False
     for assignment_name in assignments_by_order:
-        if args.first_assessment and args.first_assessment != assignment_name:
-            continue
+        if args.first_assessment:
+            found_first_assessment = found_first_assessment or assignment_name == args.first_assessment
+            if not found_first_assessment:
+                continue
         assignment_id = course.find_assignment_id_by_name(assignment_name)
         assignment = make_assignment_from_name(assignment_name, assignment_id, course)
         print(f"Updating assignment {assignment_name}")
