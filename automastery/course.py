@@ -7,9 +7,8 @@ import os
 from _t_ import TOKEN
 from pathlib import Path
 import json
-from MasteryInfo import Mastery
 
-# Given a grade already published from Gradescope to Canvas, 
+# Given a grade already published from Gradescope to Canvas,
 # mark a rubric item based on their grade and some threshold: 
 #     at least a "if score is above T, assign "Mastery" 
 # where T can be something like an 80
@@ -31,7 +30,6 @@ class Course():
             "Authorization": f"Bearer {TOKEN}"
         }
         self.course_name = self.get_course_name()
-        self.mastery = Mastery(self.PAGE_URL, self.COURSE_ID, self.headers)
         self.course_config_root = Path("config") / f"course_id_{self.COURSE_ID}"
         # Data is sensitive student info like grades
         self.course_data_root = Path("data") / f"course_id_{self.COURSE_ID}"
@@ -171,21 +169,3 @@ class Course():
                 json.dump(assignment_dict, assignment_data_file, indent=4)
         
             return assignment_dict
-
-    def create_new_assignment_outcomes(self, assignment_id):
-        """ 
-        Calculates the outcome scores for each student on a particular assignment
-        Args:
-            assignment_id (int): 
-        """
-        self.mastery.calc_assignment_outcomes(assignment_id, self.student_data_dict)
-    
-    def update_assignment_outcomes(self, assignment_id):
-        """
-        Updates the outcomes attached to a singular assignment for every student.
-        The outcomes for the assignment MUST be calculated first.
-        Parameters:
-            assignment_id (int): id of the assignment
-            is_jamil_scared_of_updating_every_students_outcome (bool): Only forces the grade of 1 student, the first one on the json list.
-        """
-        self.mastery.update_assignment_outcomes(self, assignment_id)
