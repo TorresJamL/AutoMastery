@@ -1,3 +1,4 @@
+import copy
 import io
 import json
 import os
@@ -192,22 +193,28 @@ class LoadFromCSVAssignment(Assignment):
 
         csv_file_name = self.get_csv_file_name()
         if self.update_from_gradescope:
-            # Get assignment
-            assignments = self.course.gradescope.get_assignments(self.course.gs_course)
-            gradescope_assignment = self.get_gradescope_assignment_by_name(assignments, name)
-
-            # Save the df to data/
-            #grade_df = self.course.gradescope.get_assignment_grades(gradescope_assignment)
-            response = self.course.gradescope.session.get(gradescope_assignment.get_grades_url())
-            self.course.gradescope._response_check(response)
-            grade_df = pd.read_csv(io.StringIO(response.content.decode('utf-8')))
-            grade_df = grade_df[grade_df["First Name"] != "unidentified"].reset_index(drop=True)
-            grade_df["SID"] = grade_df["SID"].astype("Int64")
-            save_csv(csv_file_name, grade_df)
+            self.update_csv_from_gradescope(csv_file_name)
 
         self.score_df = pd.read_csv(csv_file_name)
         self.rubric_id_to_qkeys = self.load_rubric_id_to_qkeys() #load from a json file
         self.rubric_id_to_total_pts = self.get_rubric_id_to_total_pts(self.rubric_id_to_qkeys)
+
+    def update_csv_from_gradescope(self, csv_file_name):
+        """
+        Mutator: updates the csv file
+        """
+        # Get assignment
+        assignments = self.course.gradescope.get_assignments(self.course.gs_course)
+        gradescope_assignment = self.get_gradescope_assignment_by_name(assignments, self.name)
+
+        # Save the df to data/
+        # grade_df = self.course.gradescope.get_assignment_grades(gradescope_assignment)
+        response = self.course.gradescope.session.get(gradescope_assignment.get_grades_url())
+        self.course.gradescope._response_check(response)
+        grade_df = pd.read_csv(io.StringIO(response.content.decode('utf-8')))
+        grade_df = grade_df[grade_df["First Name"] != "unidentified"].reset_index(drop=True)
+        grade_df["SID"] = grade_df["SID"].astype("Int64")
+        save_csv(csv_file_name, grade_df)
 
     def get_csv_file_name(self) -> Any:
         #! Create assignments JSON if does not exist already.
@@ -221,21 +228,31 @@ class LoadFromCSVAssignment(Assignment):
         with open(self.assignment_config_path / "assignment.json", 'r', encoding='utf-8') as file:
             data_dict = json.load(file)
             if "csv_path" not in data_dict:
-                potential_csv_file_name = input(f"Enter a CSV file name, or type press and put the file in {self.assignment_data_path}. Enter when done: ")
-                #? Using my own deduction from the code
-                if potential_csv_file_name.endswith(".csv"):
-                    csv_file_name = potential_csv_file_name
-                    # File path of the csv
-                    csv_file_path = self.assignment_data_path / csv_file_name
+                user_resp = input("Download CSV from Gradescope? y/n ")
+                if "y" in user_resp.lower():
+                    assert(self.update_from_gradescope)
+                    # Make the name that would be on gradescope
+                    assignment_name = copy.deepcopy(self.name)
+                    if "Test" in assignment_name:
+                        assignment_name = assignment_name[:assignment_name.index("Question") - 1]
+                    assignment_name = assignment_name.replace(" ", "_")
+                    csv_file_path = str(self.assignment_data_path / f"{assignment_name}_scores.csv")
                 else:
-                    csv_file_name = find_csv_in_dir(self.assignment_data_path)
-                print(f"Using csv {csv_file_name}")
+                    potential_csv_file_name = input(f"Enter a CSV file name, or type press and put the file in {self.assignment_data_path}. Enter when done: ")
+                    #? Using my own deduction from the code
+                    if potential_csv_file_name.endswith(".csv"):
+                        csv_file_name = potential_csv_file_name
+                        # File path of the csv
+                        csv_file_path = self.assignment_data_path / csv_file_name
+                    else:
+                        csv_file_name = find_csv_in_dir(self.assignment_data_path)
+                    print(f"Using csv {csv_file_name}")
 
                 data_dict["csv_path"] = csv_file_path
             with open(self.assignment_config_path / "assignment.json", 'w') as fp:
                 json.dump(data_dict, fp)
-            csv_file_name = data_dict["csv_path"]
-        return csv_file_name
+            csv_file_path = data_dict["csv_path"]
+        return csv_file_path
 
 
     def get_gradescope_assignment_by_name(self, assignments, assignment_name):
@@ -251,10 +268,6 @@ class LoadFromCSVAssignment(Assignment):
     @property
     def need_to_update_total_question_score(self)->bool:
         return True
-
-    @property
-    def need_to_update_mastery_score(self)->bool:
-        return not ("Exam 2 Question 2" in self.name)
 
     def load_rubric_id_to_qkeys(self)->dict:
         """
@@ -477,7 +490,8 @@ class SingleScoreSingleOutcomeAssignment(Assignment):
             raise RubricNotFoundError(f"Could not find rubric for Assignment # {self.assignment_id}. Please add on to the Canvas assignment and add at least one outcome")
 
         for rubric in canvas_rubrics_data['rubric']:
-            mastery_score = self.score_to_rubric_score(score/100)
+            mastery_score = self.score_to_rubric_score(score/canvas_rubrics_data["points_possible"])
+
             new_outcome["rubric_assessment"][str(rubric["id"])] = {"points": mastery_score}
         print(f"{student_name} new outcome: {new_outcome}")
         return new_outcome
