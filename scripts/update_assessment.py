@@ -1,7 +1,7 @@
 import argparse
 
-from Assignment import  make_assignment_from_name
-from CourseInfo import Course
+from automastery.assignment import make_assignment_from_name
+from automastery.course import Course
 
 
 def main():

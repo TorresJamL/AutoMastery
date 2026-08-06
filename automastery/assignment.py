@@ -11,9 +11,9 @@ import pandas as pd
 import re
 from pathlib import Path
 
-from data_utils import assignment_match_to_csv_name, StudentNotFoundError, StudentSubmissionNotFoundError, \
+from .utils import assignment_match_to_csv_name, StudentNotFoundError, StudentSubmissionNotFoundError, \
     find_student_df_by_SID, RubricNotFoundError, find_csv_in_dir
-from CourseInfo import Course
+from .course import Course
 from gradescope import save_csv
 
 import requests
