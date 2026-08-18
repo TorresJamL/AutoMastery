@@ -334,6 +334,8 @@ class LoadFromCSVAssignment(Assignment):
         response.raise_for_status()
         canvas_rubrics_data = response.json()
         rubric_id_to_rubric_data: dict[str, dict] = {}
+        if "rubric" not in canvas_rubrics_data:
+            raise RubricNotFoundError(self.assignment_id)
         for rubric in canvas_rubrics_data['rubric']:
             print(rubric) # print description and some more info about it
             print(f"Rubric item description: {rubric['description']}")
@@ -448,6 +450,7 @@ class ExamQuestion(LoadFromCSVAssignment):
 class MultiScoreMultiOutcomeAssignment(LoadFromCSVAssignment):
     """
     A class that can handle multiple scores and multiple outcomes
+    Used for homeworks and labs
     """
     def infer_assignment_keys_from_df(self, student_df:pd.DataFrame) -> list:
         assignment_keys = []
@@ -456,6 +459,7 @@ class MultiScoreMultiOutcomeAssignment(LoadFromCSVAssignment):
                 continue
             assignment_keys.append(key)
         return assignment_keys
+
 
 class SingleScoreSingleOutcomeAssignment(Assignment):
 
@@ -471,11 +475,12 @@ class SingleScoreSingleOutcomeAssignment(Assignment):
         #    if not default_0:
         #        raise StudentSubmissionNotFoundError(f"Could not find submission: {submission_url}")
 
+        # You can do this via Gradescope as well
         if "score" not in submission_data or submission_data["score"] is None:
             if default_0:
                 score = 0
             else:
-                raise StudentSubmissionNotFoundError(f"Could not find submission: {student_name}")
+                raise StudentSubmissionNotFoundError(student_name)
         else:
             score = submission_data["score"]
 
@@ -487,7 +492,7 @@ class SingleScoreSingleOutcomeAssignment(Assignment):
         response.raise_for_status()
         canvas_rubrics_data = response.json()
         if "rubric" not in canvas_rubrics_data:
-            raise RubricNotFoundError(f"Could not find rubric for Assignment # {self.assignment_id}. Please add on to the Canvas assignment and add at least one outcome")
+            raise RubricNotFoundError(self.assignment_id)
 
         for rubric in canvas_rubrics_data['rubric']:
             mastery_score = self.score_to_rubric_score(score/canvas_rubrics_data["points_possible"])

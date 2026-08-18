@@ -26,7 +26,7 @@ def assignment_match_to_csv_name(name):
 def find_student_df_by_SID(df, sid, student_name ="Student name not included"):
     assert pd.api.types.is_integer_dtype(df["SID"])
     if int(sid) not in list(df["SID"]):
-        raise StudentNotFoundError(f"Could not find student: {student_name}")
+        raise StudentNotFoundError(student_name)
     student_df = df.loc[df["SID"] == int(sid)].squeeze()
     return student_df
 
@@ -39,11 +39,13 @@ def find_csv_in_dir(dir):
         raise ValueError(f"Could not find csv file for {dir}")
 
 class StudentNotFoundError(RuntimeError):
-    pass
+    def __init__(self, student_name):
+        super().__init__(f"Could not find student: {student_name}")
 
 class RubricNotFoundError(RuntimeError):
-    def __str__(self):
-        return f"Could not find Rubric on Canvas for {self}. Please add one to the Canvas assignment and add at least one outcome"
+    def __init__(self, assignment_id):
+        super().__init__(f"Could not find rubric for Assignment #{assignment_id}. Please add a rubric on Canvas with at least one outcome.")
 
 class StudentSubmissionNotFoundError(RuntimeError):
-    pass
+    def __init__(self, student_name):
+        super().__init__(f"Could not find submission for student: {student_name}")
