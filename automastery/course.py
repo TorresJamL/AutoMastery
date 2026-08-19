@@ -1,10 +1,10 @@
 import requests
-from _t_ import GS_PWD, GS_USR
+from automastery.creds import GS_PWD, GS_USR
 
 from gradescope import Gradescope, Role #! Importing from the gradescope api takes quite a bit.
 from gradescope import Course as GradescopeCourse
 import os
-from _t_ import TOKEN
+from automastery.creds import TOKEN
 from pathlib import Path
 import json
 
