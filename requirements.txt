@@ -1,0 +1,7 @@
+requests>=2.28
+pandas>=2.0
+numpy>=1.24
+tqdm>=4.60
+openpyxl>=3.1
+gradescope-tool>=0.1.4
+beautifulsoup4>=4.12
