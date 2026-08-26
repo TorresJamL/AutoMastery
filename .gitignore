@@ -1,10 +1,6 @@
-# Byte-compiled / optimized / DLL files
 __pycache__/
-
-# C extensions
 *.so
 
-# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -22,22 +18,16 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
-# Environments
 .env
 .envrc
 .venv
-env/
-venv/
-ENV/
-
-
-# Course Exclusive Info
-student_data.json
-assignment_data.json
 
 # Token
 _t_.py
 
+# Very important, has student data
 data/
+sandbox/
+
+# Potentially worth adding

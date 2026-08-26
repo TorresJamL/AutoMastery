@@ -12,7 +12,7 @@ Automates mastery-based grading for Canvas courses with the Stevens Canvas setup
 
 ### Credentials
 
-Create a file called `_t_.py` in the project root (it is gitignored):
+Create a file called `_t_.py` in the project root (it is gitignored). It is loaded by path relative to the `automastery/` package, so it is found no matter what directory you run from:
 
 ```python
 TOKEN = "your-canvas-api-token"

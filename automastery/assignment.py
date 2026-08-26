@@ -50,7 +50,7 @@ class Assignment(ABC):
             self.score_thresholds = {}
             threshold_defaults = {"Exceeds Mastery":0.99, "Mastery":0.75, "Near Mastery":0.5, "Below Mastery":0.25}
             for threshold in threshold_defaults.keys():
-                user_threshold = input(f"Enter threshold for {threshold} or <Enter> for default")
+                user_threshold = input(f"Enter threshold for {threshold} or <Enter> for default: ")
                 if user_threshold == "":
                    threshold_value = threshold_defaults[threshold]
                 else:
@@ -228,7 +228,7 @@ class LoadFromCSVAssignment(Assignment):
         with open(self.assignment_config_path / "assignment.json", 'r', encoding='utf-8') as file:
             data_dict = json.load(file)
             if "csv_path" not in data_dict:
-                user_resp = input("Download CSV from Gradescope? y/n ")
+                user_resp = input("Download CSV from Gradescope? y/n :")
                 if "y" in user_resp.lower():
                     assert(self.update_from_gradescope)
                     # Make the name that would be on gradescope
@@ -337,7 +337,7 @@ class LoadFromCSVAssignment(Assignment):
         if "rubric" not in canvas_rubrics_data:
             raise RubricNotFoundError(self.assignment_id)
         for rubric in canvas_rubrics_data['rubric']:
-            print(rubric) # print description and some more info about it
+            #print(rubric) # print description and some more info about it
             print(f"Rubric item description: {rubric['description']}")
 
             # print df questions and corresponding indices
@@ -348,7 +348,7 @@ class LoadFromCSVAssignment(Assignment):
                 print("##########################")
                 print(f"Subquestion {i} \n")
                 print(question_key)
-                res = input("Does this key correspond to the above rubric item? (y/n)")
+                res = input("Does this key correspond to the above rubric item? (y/n) :")
                 if res == "y":
                     keys_for_rubric_item.append(question_key)
                 print("##########################")
@@ -517,7 +517,7 @@ def make_assignment_from_name(assignment_name, assignment_id, course) -> Assignm
     possible_classes = ["ExamQuestion", "MultiScoreMultiOutcomeAssignment", "SingleScoreSingleOutcomeAssignment"]
     if not os.path.exists(assignment_dir / "assignment.json"):
         os.makedirs(assignment_dir, exist_ok=True)
-        assignment_cls_input = input(f"{assignment_name} Assignment class : SS or {possible_classes}")
+        assignment_cls_input = input(f"{assignment_name} Assignment class : SS, EQ or {possible_classes}: ")
         if assignment_cls_input == "SS":
             assignment_cls_input = "SingleScoreSingleOutcomeAssignment" #shorthand
         if assignment_cls_input == "EQ":
